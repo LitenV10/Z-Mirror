@@ -339,6 +339,9 @@ async def load_config():
     CLONE_LIMIT = environ.get('CLONE_LIMIT', '')
     CLONE_LIMIT = '' if len(CLONE_LIMIT) == 0 else float(CLONE_LIMIT)
 
+    RCLONE_LIMIT = environ.get('RCLONE_LIMIT', '')
+    RCLONE_LIMIT = '' if len(RCLONE_LIMIT) == 0 else float(RCLONE_LIMIT)
+
     MEGA_LIMIT = environ.get('MEGA_LIMIT', '')
     MEGA_LIMIT = '' if len(MEGA_LIMIT) == 0 else float(MEGA_LIMIT)
 
@@ -359,6 +362,15 @@ async def load_config():
 
     DISABLE_DRIVE_LINK = environ.get('DISABLE_DRIVE_LINK', '')
     DISABLE_DRIVE_LINK = DISABLE_DRIVE_LINK.lower() == 'true'
+
+    DISABLE_BULK = environ.get('DISABLE_BULK', '')
+    DISABLE_BULK = DISABLE_BULK.lower() == 'true'
+
+    DISABLE_MULTI = environ.get('DISABLE_MULTI', '')
+    DISABLE_MULTI = DISABLE_MULTI.lower() == 'true'
+
+    DISABLE_SEED = environ.get('DISABLE_SEED', '')
+    DISABLE_SEED = DISABLE_SEED.lower() == 'true'
 
     DISABLE_LEECH = environ.get('DISABLE_LEECH', '')
     DISABLE_LEECH = DISABLE_LEECH.lower() == 'true'
@@ -472,6 +484,9 @@ async def load_config():
                         'DIRECT_LIMIT': DIRECT_LIMIT,
                         'DISABLE_DRIVE_LINK': DISABLE_DRIVE_LINK,
                         'DISABLE_LEECH': DISABLE_LEECH,
+                        'DISABLE_BULK': DISABLE_BULK,
+                        'DISABLE_MULTI': DISABLE_MULTI,
+                        'DISABLE_SEED': DISABLE_SEED,
                         'DM_MODE': DM_MODE,
                         'DELETE_LINKS': DELETE_LINKS,
                         'EQUAL_SPLITS': EQUAL_SPLITS,
@@ -500,6 +515,7 @@ async def load_config():
                         'QUEUE_DOWNLOAD': QUEUE_DOWNLOAD,
                         'QUEUE_UPLOAD': QUEUE_UPLOAD,
                         'RCLONE_FLAGS': RCLONE_FLAGS,
+                        'RCLONE_LIMIT': RCLONE_LIMIT,
                         'RCLONE_PATH': RCLONE_PATH,
                         'RCLONE_SERVE_URL': RCLONE_SERVE_URL,
                         'RCLONE_SERVE_PORT': RCLONE_SERVE_PORT,
@@ -636,8 +652,7 @@ async def edit_variable(_, message, pre_message, key):
     handler_dict[message.chat.id] = False
     value = message.text
     if key == 'RSS_DELAY':
-        value = int(value)
-        addJob(value)
+        addJob()
     elif key == 'DOWNLOAD_DIR':
         if not value.endswith('/'):
             value += '/'
@@ -658,7 +673,11 @@ async def edit_variable(_, message, pre_message, key):
         for download in downloads:
             if not download.is_complete:
                 try:
-                    await sync_to_async(aria2.client.change_option, download.gid, {'bt-stop-timeout': f'{value}'})
+                    await sync_to_async(
+                        aria2.client.change_option,
+                        download.gid,
+                        {'bt-stop-timeout': f'{value}'}
+                    )
                 except Exception as e:
                     LOGGER.error(e)
         aria2_options['bt-stop-timeout'] = f'{value}'

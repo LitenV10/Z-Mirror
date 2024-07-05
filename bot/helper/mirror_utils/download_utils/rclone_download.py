@@ -3,10 +3,10 @@ from asyncio import gather
 from json import loads
 from secrets import token_urlsafe
 
-from bot import (config_dict, LOGGER, download_dict, download_dict_lock, non_queued_dl,
+from bot import (LOGGER, download_dict, download_dict_lock, non_queued_dl,
                  queue_dict_lock)
 from bot.helper.ext_utils.bot_utils import cmd_exec
-from bot.helper.ext_utils.task_manager import is_queued, stop_duplicate_check
+from bot.helper.ext_utils.task_manager import is_queued, stop_duplicate_check, limit_checker
 from bot.helper.mirror_utils.rclone_utils.transfer import RcloneTransferHelper
 from bot.helper.mirror_utils.status_utils.queue_status import QueueStatus
 from bot.helper.mirror_utils.status_utils.rclone_status import RcloneStatus
@@ -18,8 +18,8 @@ async def add_rclone_download(rc_path, config_path, path, name, listener):
     remote, rc_path = rc_path.split(':', 1)
     rc_path = rc_path.strip('/')
 
-    cmd1 = f'rclone lsjson --fast-list --stat --no-mimetype --no-modtime --config {config_path} "{remote}:{listener.link}"'
-    cmd2 = f'rclone size --fast-list --json --config {config_path} "{remote}:{listener.link}"'
+    cmd1 = f'rclone lsjson --fast-list --stat --no-mimetype --no-modtime --config {config_path} "{remote}:{rc_path}"'
+    cmd2 = f'rclone size --fast-list --json --config {config_path} "{remote}:{rc_path}"'
     res1, res2 = await gather(cmd_exec(cmd1, shell=True), cmd_exec(cmd2, shell=True))
     if res1[2] != res2[2] != 0:
         if res1[2] != -9:
@@ -50,6 +50,11 @@ async def add_rclone_download(rc_path, config_path, path, name, listener):
     msg, button = await stop_duplicate_check(name, listener)
     if msg:
         rmsg = await sendMessage(listener.message, msg, button)
+        await delete_links(listener.message)
+        await auto_delete_message(listener.message, rmsg)
+        return
+    if limit_exceeded := await limit_checker(size, listener, isRclone=True):
+        rmsg = await sendMessage(listener.message, limit_exceeded)
         await delete_links(listener.message)
         await auto_delete_message(listener.message, rmsg)
         return

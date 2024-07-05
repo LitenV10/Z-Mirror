@@ -25,7 +25,7 @@ from bot.helper.mirror_utils.download_utils.qbit_download import add_qb_torrent
 from bot.helper.mirror_utils.download_utils.rclone_download import add_rclone_download
 from bot.helper.mirror_utils.download_utils.telegram_download import TelegramDownloadHelper
 from bot.helper.mirror_utils.rclone_utils.list import RcloneList
-from bot.helper.mirror_utils.upload_utils.gdriveTools import GoogleDriveHelper
+from bot.helper.mirror_utils.gdrive_utils.helper import GoogleDriveHelper
 from bot.helper.telegram_helper.bot_commands import BotCommands
 from bot.helper.telegram_helper.filters import CustomFilters
 from bot.helper.telegram_helper.message_utils import (anno_checker, delete_links,
@@ -117,6 +117,11 @@ async def _mirror_leech(client, message, isQbit=False, isLeech=False, sameDir=No
         sameDir['tasks'].add(message.id)
 
     if isBulk:
+        if config_dict['DISABLE_BULK']:
+            bmsg = await sendMessage(message, 'Bulk is disabled!')
+            await delete_links(message)
+            await auto_delete_message(message, bmsg)
+            return
         try:
             bulk = await extract_bulk_links(message, bulk_start, bulk_end)
             if len(bulk) == 0:
@@ -138,6 +143,11 @@ async def _mirror_leech(client, message, isQbit=False, isLeech=False, sameDir=No
     @new_task
     async def __run_multi():
         if multi <= 1:
+            return
+        if config_dict['DISABLE_MULTI']:
+            mimsg = await sendMessage(message, 'Multi is disabled!')
+            await delete_links(message)
+            await auto_delete_message(message, mimsg)
             return
         await sleep(5)
         if len(bulk) != 0:
@@ -174,7 +184,10 @@ async def _mirror_leech(client, message, isQbit=False, isLeech=False, sameDir=No
 
     elif sender_chat := message.sender_chat:
         tag = sender_chat.title
-    if username := message.from_user.username:
+    if not message.from_user:
+        tag = 'Anonymous'
+        message.from_user = await anno_checker(message)
+    elif username := message.from_user.username:
         tag = f"@{username}"
     else:
         tag = message.from_user.mention
